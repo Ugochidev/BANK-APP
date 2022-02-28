@@ -34,7 +34,14 @@ const createUser = async (req, res, next) => {
         message: "accounNumber exists, please login",
       });
     }
-    
+    const accountNum = await User.findOne({
+      accountNumber,
+    });
+    if (accountNumber.length < 10 || accountNumber.length > 10) {
+      return res.status(401).json({
+        message: "accounNumber must be 10",
+      });
+    }
     if (
       !firstName ||
       !lastName ||
@@ -91,7 +98,8 @@ const loginUser = async (req, res, next) => {
     }
     if (phoneNumberExist.blocked == true) {
       return res.status(403).json({
-        message: "Account has been suspended, please pay up!",
+        message:
+          "Your account has been suspended, please contact customer care",
       });
     }
     const data = {
@@ -118,18 +126,7 @@ const loginUser = async (req, res, next) => {
 const retrieveUser = async (req, res, next) => {
   try {
     const { phoneNumber } = req.query;
-    const getUser = await User.findOne(
-      { phoneNumber },
-      {
-        firstName: 0,
-        lastName: 0,
-        phoneNumber: 0,
-        email: 0,
-        password: 0,
-        blocked: 0,
-        role: 0,
-      }
-    );
+    const getUser = await User.findOne({ phoneNumber }).select("accountNumber");
     return res.status(200).json({
       getUser,
     });

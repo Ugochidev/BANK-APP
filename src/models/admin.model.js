@@ -1,44 +1,44 @@
 //  require dependencies
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
-// creating a Scheme
-const userSchema = new Schema(
+// creating  admin Scheme
+const adminSchema = new Schema(
   {
     firstName: {
       type: String,
       required: true,
-      min: 6,
-      max: 255,
+      trim: true,
     },
     lastName: {
       type: String,
       required: true,
-      min: 6,
-      max: 255,
+      trim: true,
     },
     phoneNumber: {
       type: String,
       required: true,
-      min: 6,
-      max: 255,
+      trim: true,
     },
     email: {
       type: String,
       required: true,
-      min: 6,
-      max: 255,
+      trim: true,
+      lowercase: true,
+      match: [
+        /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
+        "Please fill a valid email address",
+      ],
     },
     password: {
       type: String,
       required: true,
-      min: 6,
-      max: 255,
+      trim: true,
     },
-     role: {
-    type: String,
-    enum: ["User", "Admin"],
-    default: "User",
-  },
+    role: {
+      type: String,
+      enum: ["User", "Admin"],
+      default: "User",
+    },
   },
   {
     timestamps: true,
@@ -46,4 +46,4 @@ const userSchema = new Schema(
 );
 
 //    exporting modules
-module.exports = mongoose.model("Admin", userSchema);
+module.exports = mongoose.model("Admin", adminSchema);

@@ -1,42 +1,42 @@
 //  require dependencies
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
-// creating a Scheme
+// creating a user Scheme
 const userSchema = new Schema(
   {
     firstName: {
       type: String,
+      trim: true,
       required: true,
-      min: 6,
-      max: 255,
     },
     lastName: {
       type: String,
+      trim: true,
       required: true,
-      min: 6,
-      max: 255,
     },
     phoneNumber: {
-      type: String,
+      type: Number,
+      trim: true,
       required: true,
-      min: 6,
-      max: 255,
     },
     email: {
       type: String,
+      trim: true,
       required: true,
-      min: 6,
-      max: 255,
       lowercase: true,
+      match: [
+        /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
+        "Please fill a valid email address",
+      ],
     },
     password: {
       type: String,
+      trim: true,
       required: true,
-      min: 6,
-      max: 255,
     },
     role: {
       type: String,
+      trim: true,
       enum: ["User"],
       default: "User",
     },
@@ -46,6 +46,7 @@ const userSchema = new Schema(
     },
     accountNumber: {
       type: Number,
+      trim: true,
       required: true,
     },
   },

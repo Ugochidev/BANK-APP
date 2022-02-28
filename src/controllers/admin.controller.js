@@ -43,6 +43,14 @@ const createAdmin = async (req, res, next) => {
         message: "accounNumber exists, please login",
       });
     }
+    const accountNums = await User.findOne({
+      accountNumber,
+    });
+    if (accountNumber.length < 10 || accountNumber.length > 10) {
+      return res.status(401).json({
+        message: "accounNumber must be 10",
+      });
+    }
     if (
       !firstName ||
       !lastName ||
@@ -127,7 +135,7 @@ const loginAdmin = async (req, res, next) => {
     });
   }
 };
-//  getting all Users 
+//  getting all Users
 const getAllUsers = async (req, res, next) => {
   try {
     const getUsers = await User.find();
@@ -140,7 +148,7 @@ const getAllUsers = async (req, res, next) => {
     });
   }
 };
-//   blocking a user 
+//   blocking a user
 const isBlocked = async (req, res, next) => {
   try {
     if (
