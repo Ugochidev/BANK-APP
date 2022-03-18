@@ -7,59 +7,28 @@ const AppError = require("../utils/appError");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const bcrypt = require("bcrypt");
+const { sendMail } = require("../DBconnect/sendMail");
+const {
+  validateRegister,
+  validateLogin,
+  isblocked,
+} = require("../middleware/validiate.middleware");
 
 //  creating  Admin
 const createAdmin = async (req, res, next) => {
   try {
-    const {
-      firstName,
-      lastName,
-      phoneNumber,
-      email,
-      password,
-      accountNumber,
-      role,
-    } = req.body;
+    const { firstName, lastName, phoneNumber, email, password } = req.body;
+    const result = await validateRegister.validateAsync(req.body);
+
     // validating phoneNumber
     const phoneNumberExist = await Admin.findOne({ phoneNumber });
     if (phoneNumberExist) {
-      return res.status(401).json({
-        message: "phoneNumber exists, please login",
-      });
+      return next(new AppError("PhoneNumber already exist please login", 400));
     }
     // validating email
     const emailExist = await Admin.findOne({ email });
     if (emailExist) {
-      return res.status(401).json({
-        message: "email exists, please login",
-      });
-    }
-    //   validating accountNumber
-    const accountNumberExist = await User.findOne({
-      accountNumber,
-    });
-    if (accountNumberExist) {
-      return res.status(401).json({
-        message: "accounNumber exists, please login",
-      });
-    }
-    const accountNums = await User.findOne({
-      accountNumber,
-    });
-    if (accountNumber.length < 10 || accountNumber.length > 10) {
-      return res.status(401).json({
-        message: "accounNumber must be 10",
-      });
-    }
-    if (
-      !firstName ||
-      !lastName ||
-      !phoneNumber ||
-      !email ||
-      !password ||
-      !accountNumber
-    ) {
-      return next(new AppError("Please fill in the required field", 400));
+      return next(new AppError("email exists, please login", 400))
     }
     // hashing password
     const hashPassword = await bcrypt.hash(password, 10);
@@ -71,22 +40,49 @@ const createAdmin = async (req, res, next) => {
       phoneNumber,
       email,
       password: hashPassword,
-      accountNumber,
-      role,
     });
-    const payload = {
-      id: newAdmin._id,
-      email: newAdmin.email,
-      role: newAdmin.role,
-    };
-    const token = await jwt.sign(payload, process.env.SECRET_TOKEN, {
-      expiresIn: "1h",
-    });
+     const data = {
+       id: newAdmin_id,
+       email: newAdmin.email,
+       role: newAdmin.role,
+     };
+     const url = "theolamideolanrewaju.com";
+     const token = await jwt.sign(data, process.env.SECRET_TOKEN, {
+       expiresIn: "2h",
+     });
+     let mailOptions = {
+       to: newAdmin.email,
+       subject: "Verify Email",
+       text: `Hi ${firstName}, Pls verify your email. ${url}
+       ${token}`,
+     };
+     await sendMail(mailOptions);
     return successResMsg(res, 201, {
       message: "Admin  created",
       newAdmin,
-      token,
     });
+  } catch (error) {
+    return errorResMsg(res, 500, { message: error.message });
+  }
+};
+
+// verifying Email
+
+const verifyEmail = async (req, res, next) => {
+  try {
+    const { token } = req.query;
+    const decodedToken = await jwt.verify(token, process.env.SECRET_TOKEN);
+    const admin = await Admin.findOne({ email: decodedToken.email }).select(
+      "isVerfied"
+    );
+    if (admin.isVerified) {
+      return successResMsg(res, 200, {
+        message: "admin verified already",
+      });
+    }
+    admin.isVerified = true;
+    admin.save();
+    return successResMsg(res, 201, { message: "Admin verified successfully" });
   } catch (error) {
     return errorResMsg(res, 500, { message: error.message });
   }
@@ -95,26 +91,29 @@ const createAdmin = async (req, res, next) => {
 const loginAdmin = async (req, res, next) => {
   try {
     const { phoneNumber, password } = req.body;
+    const login = await validateLogin.validateAsync(req.body);
+
     const phoneNumberExist = await Admin.findOne({ phoneNumber });
     if (!phoneNumberExist) {
-      return res.status(401).json({
-        message: "phoneNumber does not exist, please create an account",
-      });
-    }
+       return next(new AppError("PhoneNumber does not exist please sign-up", 400))
+    };
     let isPasswordExist = await bcrypt.compare(
       password,
       phoneNumberExist.password
     );
     if (!isPasswordExist) {
-      return res.status(401).json({
-        message: "Password Not Correct",
-      });
+       return next(
+         new AppError(" Invalid Password", 400)
+       );
     }
     if (phoneNumberExist.role == "User") {
-      return res.status(401).json({
-        message: "Unauthorized",
-      });
+       return next(
+         new AppError("Unauthorized", 401)
+       );
     }
+     if(!emailExist.isVerified){
+      return res.status(401).json({message:"Admin not verified"})
+     }
     const data = {
       id: phoneNumberExist._id,
       phoneNumber: phoneNumberExist.phoneNumber,
@@ -124,28 +123,22 @@ const loginAdmin = async (req, res, next) => {
     const token = await jwt.sign(data, process.env.SECRET_TOKEN, {
       expiresIn: "1h",
     });
-    return res.status(200).json({
-      success: true,
-      message: "Admin login successfully",
-      token,
+    return successResMsg(res, 200, {
+      message: "Admin logged in sucessfully", token
     });
-  } catch (error) {
-    return res.status(500).json({
-      message: error.message,
-    });
+ } catch (error) {
+    return errorResMsg(res, 500, { message: error.message });
   }
 };
 //  getting all Users
 const getAllUsers = async (req, res, next) => {
   try {
     const getUsers = await User.find();
-    return res.status(200).json({
-      getUsers,
+    return successResMsg(res, 200, {
+      message: "Get Users sucessfully", getUsers
     });
   } catch (error) {
-    return res.status(500).json({
-      message: error.message,
-    });
+    return errorResMsg(res, 500, { message: error.message });
   }
 };
 //   blocking a user
@@ -156,43 +149,36 @@ const isBlocked = async (req, res, next) => {
       req.body.lastName ||
       req.body.phoneNumber ||
       req.body.email ||
-      req.body.password ||
-      req.body.accountNumber
+      req.body.password
     ) {
-      return res.status(400).json({
-        message: `Only blocked status can be modified`,
-      });
+     return next(
+         new AppError("Only blocked property can be modified", 401)
+       );
     }
     const { email } = req.query;
+    const result = await isblocked.validateAsync(req.query);
     const blockUser = await User.findOneAndUpdate({ email }, req.body, {
       new: true,
     });
-    return res.status(200).json({
-      blockUser,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      message: error.message,
-    });
+    return successResMsg(res, 200, blockUser);
+ } catch (error) {
+    return errorResMsg(res, 500, { message: error.message });
   }
 };
 //  counting all registered user
 const countUsers = async (req, res, next) => {
   try {
     const usercount = await User.countDocuments();
-    return res.status(200).json({
-      usercount,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      message: error.message,
-    });
+   return successResMsg(res, 200, blockUser)
+ } catch (error) {
+    return errorResMsg(res, 500, { message: error.message });
   }
 };
 
 //  exporting module
 module.exports = {
   createAdmin,
+  verifyEmail,
   loginAdmin,
   getAllUsers,
   isBlocked,

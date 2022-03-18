@@ -34,10 +34,14 @@ const adminSchema = new Schema(
       required: true,
       trim: true,
     },
+     isVerified:{
+      type: Boolean,
+      default: false,
+    },
     role: {
       type: String,
-      enum: ["User", "Admin"],
-      default: "User",
+      enum: ["Admin"],
+      default: "Admin",
     },
   },
   {
