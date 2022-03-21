@@ -75,7 +75,7 @@ const verifyEmail = async (req, res, next) => {
     const { token } = req.query;
     const decodedToken = await jwt.verify(token, process.env.SECRET_TOKEN);
     const user = await User.findOne({ email: decodedToken.email }).select(
-      "isVerfied"
+      "isVerified"
     );
     if (user.isVerified) {
       return successResMsg(res, 200, {
@@ -116,7 +116,7 @@ const loginUser = async (req, res, next) => {
       );
     }
     if (!emailExist.isVerified) {
-      return res.status(401).json({ message: "User not verified" });
+       return next(new AppError("User not Verified", 401));
     }
     const data = {
       id: phoneNumberExist._id,
@@ -148,6 +148,112 @@ const retrieveUser = async (req, res, next) => {
   } catch (error) {
     return errorResMsg(res, 500, { message: error.message });
   }
+}; 
+const forgetPasswordLink = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const userEmail = await User.findOne({ email });
+    if (!userEmail) {
+     return next(new AppError("email not found", 404));
+    }
+    const data = {
+      id: userEmail._id,
+      email: userEmail.email,
+      role: userEmail.role,
+    };
+    // getting a secret token
+    const secret_key = process.env.SECRET_TOKEN;
+    const token = await jwt.sign(data, secret_key, { expiresIn: "1hr" });
+    let mailOptions = {
+      to: userEmail.email,
+      subject: "Reset Password",
+      text: `Hi ${userEmail.firstName}, Reset your password with the link below.${token}`,
+    };
+    await sendMail(mailOptions);
+     return successResMsg(res, 200, {
+        message: `Hi ${userEmail.firstName},reset password.`,
+    });
+    ;
+  } catch (error) {
+    return errorResMsg(res, 500, { message: error.message });
+  }
 };
+
+const changePassword = async (req, res, next) => {
+  try {
+    const { newPassword, confirmPassword } = req.body;
+    const { email, token } = req.query;
+    const secret_key = process.env.JWT_TOKEN;
+    const decoded_token = await jwt.verify(token, secret_key);
+    console.log(decoded_token);
+    if (decoded_token.email !== email) {
+     return next(new AppError("Email do not match.", 404));
+    }
+    if (newPassword !== confirmPassword) {
+      return next(new AppError("Password do not match.", 404));
+    }
+    const hashPassword = await bcrypt.hash(confirmPassword, 10);
+    const updatedPassword = await User.updateOne(
+      { email },
+      { password: hashPassword },
+      {
+        new: true,
+      }
+    );
+   return successResMsg(res, 200, {
+        message:`Password has been updated successfully.`,
+    });
+  } catch (error) {
+     return errorResMsg(res, 500, { message: error.message });
+  }
+};
+
+const resetPassword = async (req, res, next) => {
+  try {
+    const { oldPassword, newPassword, confirmPassword } = req.body;
+    const { email } = req.query;
+    const loggedUser = await User.findOne({ email });
+    const headerTokenEmail = await jwt.verify(req.headers.authorization.split(" ")[1], process.env.JWT_TOKEN).email;
+    if(headerTokenEmail !== loggedUser.email ){
+     return next(new AppError("Forbidden", 404));
+    }
+    const passwordMatch = await bcrypt.compare(
+      oldPassword,
+      loggedUser.password
+    );
+    console.log(passwordMatch);
+    if (!passwordMatch) {
+      return res.status(400).json({
+        message: `Old Password is not correct`,
+      });
+    }
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        message: `Password do not match.`,
+      });
+    }
+    const hashPassword = await bcrypt.hash(confirmPassword, 10);
+    const resetPassword = await User.updateOne(
+      { email },
+      { password: hashPassword }
+    );
+    return res.status(200).json({
+      message: `Password has been updated successfully.`,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: `${error.message}, Please Try agin later.`,
+    });
+  }
+};
+
 //   exporting modules
-module.exports = { createUser, verifyEmail, loginUser, retrieveUser };
+module.exports = {
+  createUser,
+  verifyEmail,
+  loginUser,
+  retrieveUser,
+  forgetPasswordLink,
+  changePassword,
+  resetPassword,
+};
