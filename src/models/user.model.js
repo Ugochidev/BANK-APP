@@ -15,7 +15,7 @@ const userSchema = new Schema(
       required: true,
     },
     phoneNumber: {
-      type: String,
+      type: Number,
       trim: true,
       required: true,
     },
@@ -34,10 +34,6 @@ const userSchema = new Schema(
       trim: true,
       required: true,
     },
-     isVerified:{
-      type: Boolean,
-      default: false,
-    },
     role: {
       type: String,
       trim: true,
@@ -48,10 +44,15 @@ const userSchema = new Schema(
       type: Boolean,
       default: false,
     },
+    accountNumber: {
+      type: Number,
+      trim: true,
+      required: true,
+    },
   },
   {
     timestamps: true,
   }
 );
-// //    exporting modules
-module.exports = mongoose.model("User", userSchema);
+//    exporting modules
+module.exports = mongoose.model("user", userSchema);
